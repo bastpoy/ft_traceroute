@@ -1,7 +1,7 @@
 SRCSPRINTF = main.c
 OBJSPRINTF = $(patsubst %.c, objects/%.o, $(SRCSPRINTF))
 
-CFLAGS = -Wall -Werror -Wextra -g3 
+CFLAGS = -Wall -Werror -Wextra -g3
 
 NAME = ft_traceroute
 
