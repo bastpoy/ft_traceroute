@@ -11,6 +11,12 @@
 #include <stdbool.h>
 #include <netinet/ip_icmp.h>
 
+double get_timestamp(){
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + ((double)tv.tv_usec) / 1000000;
+}
+
 uint16_t checksum(void *addr, size_t len) {
     uint16_t *word = addr;
     uint32_t result = 0;
@@ -56,8 +62,12 @@ int main(int argc, char *argv[])
     // tv.tv_sec = 5;
     // tv.tv_usec = 0;
 
-    int udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
-    int value = 9;
+    int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	if(udpSocket < 0){
+		printf("Error creating socket: %s\n", strerror(errno));
+		return errno;
+	}
+    int value = 2;
     socklen_t sockSize = sizeof(value);
     if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &value, sockSize) < 0){
         strerror(errno);
@@ -66,15 +76,20 @@ int main(int argc, char *argv[])
     
     FD_SET(udpSocket, &rfds);
 
-    char buffer[80] = "\0";
+	uint8_t *msg = malloc(sizeof(struct icmphdr) + 8);
+    struct icmphdr *payload = (struct icmphdr*)msg;
+	create_packet(payload, msg);
+
     struct sockaddr_in destAddr;
     destAddr.sin_family = AF_INET;
     destAddr.sin_port = 33434;
+
+	char buffer[1024] = "\0";
     
-    if(bind(udpSocket,(struct sockaddr *)&destAddr, sizeof(struct sockaddr_in)) < 0){
-        printf("Error binding socket: %s\n", strerror(errno));
-        return errno;
-    }
+    // if(bind(udpSocket,(struct sockaddr *)&destAddr, sizeof(struct sockaddr_in)) < 0){
+    //     printf("Error binding socket: %s\n", strerror(errno));
+    //     return errno;
+    // }
     int ret = inet_pton(AF_INET, argv[1], &(destAddr.sin_addr));
     if(ret < 1){
         strerror(errno);
@@ -83,36 +98,36 @@ int main(int argc, char *argv[])
 
     // retval = select(1, &rfds, NULL, NULL, &tv);
     // socklen_t lenDest = sizeof(destAddr);
-    while(value < 10){
-        ret = sendto(udpSocket, buffer, 60, 0,(struct sockaddr*)(&destAddr), sizeof(struct sockaddr));
-        if(ret < 0){
-            printf("impossible to send: %s\n", strerror(errno));
-        }
-        else{
-            printf("packet sent!!!\n");
-            // ret = select(udpSocket + 1, &rfds, NULL, NULL, &tv);
-            // if(ret < 0){
-            //     printf("Error on select fd: %s\n", strerror(errno));
-            //     return errno;
-            // }
-            // printf("ret is: %d\n", ret);
-            if(recvfrom(udpSocket, buffer, 60, 0, NULL, NULL) < 0){
-                strerror(errno);
-                return errno;
-            }
-            else{
-                printf("paquet recu!!!!\n");
-                break;
-            }
-        }
-        value++;
-        close(udpSocket);
-        udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-        if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &value, sockSize) < 0){
-            strerror(errno);
-            return(errno);
-        }
-    }
+	ret = sendto(udpSocket, payload, 16, 0,(struct sockaddr*)(&destAddr), sizeof(struct sockaddr));
+	if(ret < 0){
+		printf("impossible to send: %s\n", strerror(errno));
+	}
+	else{
+		printf("packet sent!!!\n");
+		// ret = select(udpSocket + 1, &rfds, NULL, NULL, &tv);
+		// if(ret < 0){
+		//     printf("Error on select fd: %s\n", strerror(errno));
+		//     return errno;
+		// }
+		// printf("ret is: %d\n", ret);
+		int icmpSocket = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+		if(icmpSocket < 0){
+			printf("Error creating socket: %s\n", strerror(errno));
+			return errno;
+		}
+		if(recvfrom(icmpSocket, buffer, 1024, 0, NULL, NULL) < 0){
+			strerror(errno);
+			return errno;
+		}
+		else{
+			printf("paquet recu!!!!\n");
+			int i = 0;
+			while(buffer[i] != '\0'){
+				printf("%d-", buffer[i]);
+				i++;
+			}
+		}
+	}
     /* Considérer tv comme indéfini maintenant ! */
     // Dans un while tant que retval n'est pas nul
         // Créer le socket
