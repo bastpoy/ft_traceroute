@@ -46,8 +46,12 @@ Paquet
 - **ntohs / htons** => unsigned short de network byte order vers host byte order / l'inverse
 - **freeaddrinfo** => free la structure addrinfo
 - **exit** => quitte le process
-- **select** => Surveille des file descriptor (fd)
 - **setsockopt** => Configurer des options sur un socket
 - **recvfrom / sendto** => fonction d'envoies et de réception de paquets
 - **bind / socket / close** => Lier un socket avec une addresse / Créer un socket / fermer un file descriptor
 - **strerror / gai_strerror** => renvoe la string correspondant au code d'erreur / retourne la string correspondant au code d'erreur de getaddrinfo et getnameinfo
+- **select** => Surveille des file descriptor (fd)
+- **FD_ZERO** => Supprime tous les file descriptor du set
+- **FD_CLR** => Supprimer le file descriptor du set
+- **FD_SET** => Ajoute le file descriptor au set
+- **FD_ISET** => Retourne non zero si le file descriptor est présent dans le set. 0 sinon.
