@@ -13,6 +13,7 @@
 #include <netinet/ip.h>
 #include <ifaddrs.h>
 #include "./include/libft/libft.h"
+#include <netdb.h>
 
 double get_timestamp(){
     struct timeval tv;
@@ -81,43 +82,53 @@ void create_packet(struct icmphdr *packet, uint8_t *msg){
     packet->checksum = checksum(msg, 16);
 }
 
-unsigned int reverse_number(unsigned int number){
-    unsigned int reversed_number = 0;
-    while (number != 0) {
-        int remainder = number % 10;
-        reversed_number = reversed_number * 10 + remainder;
-        number /= 10;
+long long int concatenate(long long int x, unsigned y) {
+    char *str = ft_itoa(y);
+    int len = ft_strlen(str);
+    if(len < 6){
+        while(len < 6){
+            x *= 10;
+            len++;
+        }
     }
-    return reversed_number;
+    long long int pow = 10;
+    while(y >= pow)
+        pow *= 10;
+
+    return x * pow + y;
 }
 
-long long int join_time(struct timeval time){
-    long long int res = time.tv_sec;
-    time.tv_usec = reverse_number(time.tv_usec);
-    while(time.tv_usec != 0){
-        res = (res * 10) + time.tv_usec % 10;
-        time.tv_usec /= 10;
+void resetValues(char address[3][64], float times[3]){
+    int i = 0;
+    while(i < 3){
+        address[i][0] = '\0';
+        times[i] = 0;
+        i++;
     }
-    return res;
 }
 
-int setSocket(int value){
-    int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-	if(udpSocket < 0){
-		printf("Error creating socket: %s\n", strerror(errno));
-		return -1;
-	}
-    socklen_t sockSize = sizeof(value);
-    if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &value, sockSize) < 0){
+int initialize_socket(int *udpSocket, int *icmpSocket){
+    int ttl = 1;
+    *udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if(*udpSocket < 0){
+        return errno;
+    }
+    if(setsockopt(*udpSocket, IPPROTO_IP, IP_TTL, &ttl, 4) < 0){
         strerror(errno);
-        return -1;
+        return errno;
     }
-    return udpSocket;
+
+    *icmpSocket = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+    if(*icmpSocket < 0){
+        printf("Error creating socket: %s\n", strerror(errno));
+        return errno;
+    }
+    return 0;
 }
 
-void print_line(struct iphdr *recIp, struct icmphdr *recIcmp){
-    (void)recIp;
-    (void)recIcmp;
+void print_line(int ttl, char address[3][64], float times[3]){
+    printf("%d %s %0.3f ms %0.3f ms %0.3f ms\n", ttl, address[0], times[0], times[1], times[2]);
+    return;
 }
 
 int main(int argc, char *argv[])
@@ -127,24 +138,28 @@ int main(int argc, char *argv[])
     }
 
     fd_set rfds;
+    int udpSocket = 0;
+    int icmpSocket = 0;
     
-    /* Surveiller stdin (fd 0) en attente d'entrées */
+    char address[3][64] = {{0}};
+    float times[3] = {0, 0, 0};
+        
     FD_ZERO(&rfds);
     
     //Set Time
     struct timeval tsend;
-    // struct timeval trec;
+    struct timeval trec;
     struct timeval tv;
     tv.tv_sec = 5;
     tv.tv_usec = 0;
     tsend.tv_sec = 0;
     tsend.tv_usec = 0;
-    // trec.tv_sec = 0;
-    // trec.tv_usec = 0;
+    trec.tv_sec = 0;
+    trec.tv_usec = 0;
 
-    int value = 1;
+    int ttl = 1;
     int addPort = 0;
-    int threeProb = 1;
+    int prob = 0;
 
     struct sockaddr_in destAddr;
     destAddr.sin_family = AF_INET;
@@ -153,21 +168,17 @@ int main(int argc, char *argv[])
 	unsigned char buffer[1024] = "\0";
     char bufferSend[32] = "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_";
     int ret = inet_pton(AF_INET, argv[1], &(destAddr.sin_addr));
+
     if(ret < 1){
         strerror(errno);
         return errno;
     }
-    int udpSocket = setSocket(value);
-    if(udpSocket < 0){
-        return errno;
-    }
-    int icmpSocket = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-    if(icmpSocket < 0){
-        printf("Error creating socket: %s\n", strerror(errno));
-        return errno;
+
+    if(initialize_socket(&udpSocket, &icmpSocket) != 0){
+        return 1;
     }
 
-    while(value < 8){
+    while(ttl < 10){
         destAddr.sin_port = htons(33434 + addPort);
         addPort++;
         ret = sendto(udpSocket, bufferSend, 32, 0,(struct sockaddr*)(&destAddr), sizeof(struct sockaddr));
@@ -176,30 +187,39 @@ int main(int argc, char *argv[])
             return errno;
         }
         else{
-            printf("packet sent!!!\n");
             if(gettimeofday(&tsend, NULL) < 0){
                 printf("error getting time %s\n", strerror(errno));
                 return errno;
             }
-            // calcul time
-            long long int timeSend = join_time(tsend);
+            long long int timeSend = concatenate(tsend.tv_sec, tsend.tv_usec);
+            
+            printf("packet sent!!!\n");
             FD_SET(icmpSocket,&rfds);
-
+            
             // ajout dans le fd
             ret = select(icmpSocket + 1, &rfds, NULL, NULL, &tv);
             if(ret){
                 if(FD_ISSET(icmpSocket, &rfds)){
-                    printf("j'ai de la lecture dans le socket: %d %d\n", ret, icmpSocket);
+                    if(gettimeofday(&trec, NULL) < 0){
+                        printf("error getting time %s\n", strerror(errno));
+                        return errno;
+                    }
+                    long long int timeRec = concatenate(trec.tv_sec, trec.tv_usec);
+                    float time = (float)(timeRec - timeSend) / 1000;
                     ssize_t n = read(icmpSocket, buffer, 1024);
                     if(n < 0){
                         strerror(errno);
                         return errno;
                     }
                     else{
+                        ft_strlcpy(address[prob], "test", 5);
+                        times[prob] = time;
                         struct iphdr *recIp = (struct iphdr *)buffer;
                         struct icmphdr *recIcmp = (struct icmphdr *)(buffer + sizeof(struct iphdr));
-                        printf("rec ip: %u\n", recIp->daddr);
-                        printf("rec icmp: code %d, type %d\n\n", recIcmp->code, recIcmp->type);
+                        struct sockaddr srcAddr;
+                        srcAddr.sa_data
+                        getnameinfo(recIp->saddr, );
+                        printf("rec ip: %u, rec icmp: code %d, type %d, ttl %d\n", recIp->daddr, recIcmp->code, recIcmp->type, ttl);
                         if(recIcmp->code == 3 && recIcmp->type == 3){
                             return 0;
                         }
@@ -208,18 +228,25 @@ int main(int argc, char *argv[])
             }
             else{
                 printf("error timeout ret is %d\n", ret);
+                ft_strlcpy(address[prob], "*", 1);
+                times[prob] = 0;
             }
             tv.tv_sec = 5;
             tv.tv_usec = 0;
         }
-        threeProb++;
-        if(threeProb >= 4){
-            value++;
-            if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &value, 4) < 0){
+        prob++;
+        if(prob >= 3){
+            ttl++;
+            if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &ttl, 4) < 0){
                 strerror(errno);
                 return -1;
             }
-            threeProb = 1;
+            print_line(ttl, address, times);
+            resetValues(address, times);
+            prob = 0;
+        }
+        else{
+
         }
     }
     return(0);
