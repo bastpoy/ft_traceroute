@@ -37,39 +37,6 @@ uint16_t checksum(void *addr, size_t len) {
     return ~result;
 }
 
-struct sockaddr_in *get_my_ip(char *buffer){
-    struct ifaddrs *host_addrs = NULL;
-    struct sockaddr_in *addr= NULL;
-
-    
-    int ret = getifaddrs(&host_addrs);
-    void *ptrmec = host_addrs;
-    if(ret == -1){
-        printf("Error getting host addresses");
-        return(NULL);
-    }
-    while(host_addrs){
-
-        sa_family_t family = host_addrs->ifa_addr->sa_family;
-        addr = (struct sockaddr_in*)host_addrs->ifa_addr;
-
-        if(family == AF_INET){
-            if(strcmp(host_addrs->ifa_name, "wlp2s0") == 0){
-                if(!inet_ntop(AF_INET, &addr->sin_addr, buffer, INET_ADDRSTRLEN)){
-                    printf("Error converting address too string\n");
-                    freeifaddrs(ptrmec);
-                    return NULL;
-                }
-                freeifaddrs(ptrmec);
-                return addr;
-            }
-        }
-        host_addrs = host_addrs->ifa_next;
-    }
-    freeifaddrs(ptrmec);
-    return NULL;
-}
-
 void create_packet(struct icmphdr *packet, uint8_t *msg){
     packet->type = ICMP_ECHO; 
     packet->code = 0;
@@ -127,27 +94,27 @@ int initialize_socket(int *udpSocket, int *icmpSocket){
 }
 
 void print_line(int ttl, char address[3][64], float times[3]){
-    printf("%d ", ttl);
+    printf(" %d  ", ttl);
     
     bool different = false;
     if(!ft_strncmp(address[0], address[1], 1024) && !ft_strncmp(address[1], address[2], 1024)){
-        printf("%s %0.3f ms %0.3f ms %0.3f ms\n", address[0], times[0], times[1]);
+        printf("%s  %0.3f ms %0.3f ms %0.3f ms\n", address[0], times[0], times[1], times[2]);
+		return;
     }
     else if(ft_strncmp(address[0], address[1], 1024)){
-        printf("%s %0.3f ms %s %0.3f", address[0], times[0], address[1], times[1]);
+        printf("%s  %0.3f ms %s  %0.3f ms ", address[0], times[0], address[1], times[1]);
         different = true;
     }
 
     if(ft_strncmp(address[1], address[2], 1024)){
         if(different)
-            printf("%s %0.3f ms\n", address[0], times[0], address[1]);
+            printf("%s  %0.3f ms\n", address[2], times[2]);
         else
-            printf("%s %0.3f ms %s %0.3f", address[0], times[0], address[1]);
+            printf("%s  %0.3f ms %s  %0.3f ms\n", address[1], times[1], address[2], times[2]);
     }
     else{
-        printf("%s %d %d", address[1], times[1], times[2]);
+        printf("%s  %0.3f ms %0.3f ms\n", address[1], times[1], times[2]);
     }
-    // printf("%d %s %0.3f ms %0.3f ms %0.3f ms\n", ttl, address[0], times[0], times[1], times[2]);
     return;
 }
 
@@ -156,6 +123,7 @@ int main(int argc, char *argv[])
     if(argc < 2){
         return 1;
     }
+	bool stop = false;
 
     fd_set rfds;
     int udpSocket = 0;
@@ -213,7 +181,7 @@ int main(int argc, char *argv[])
             }
             long long int timeSend = concatenate(tsend.tv_sec, tsend.tv_usec);
             
-            printf("packet sent!!!\n");
+            // printf("packet sent!!!\n");
             FD_SET(icmpSocket,&rfds);
             
             // ajout dans le fd
@@ -248,12 +216,18 @@ int main(int argc, char *argv[])
                             printf("Error getting address Name: %s %d\n", gai_strerror(ret), ret);
                             return errno;
                         }
-                        ft_strlcpy(address[prob], hbuf, ft_strlen(hbuf));
+						char *strAddr = inet_ntoa(srcAddr.sin_addr);
 
-                        // printf("the name is %s and info is %s\n", hbuf, sbuf);
-                        // printf("rec ip: %u, rec icmp: code %d, type %d, ttl %d\n", recIp->daddr, recIcmp->code, recIcmp->type, ttl);
+                        ft_strlcpy(address[prob], hbuf, ft_strlen(hbuf) + 1);
+						char *strTemp = ft_strjoin(address[prob], " (");
+						strTemp = ft_strjoin(strTemp, strAddr);
+						strTemp = ft_strjoin(strTemp, ")");
+						ft_strlcpy(address[prob], strTemp, ft_strlen(strTemp) + 1);
+
+						// printf("L'address total: %s\n", address[prob]);
+
                         if(recIcmp->code == 3 && recIcmp->type == 3){
-                            return 0;
+                            stop = true;
                         }
                     }
                 }
@@ -268,17 +242,16 @@ int main(int argc, char *argv[])
         }
         prob++;
         if(prob >= 3){
-            ttl++;
-            if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &ttl, 4) < 0){
-                strerror(errno);
+			print_line(ttl, address, times);
+            if(stop)
+				return 0;
+			resetValues(address, times);
+            prob = 0;
+			ttl++;
+			if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &ttl, 4) < 0){
+				strerror(errno);
                 return -1;
             }
-            print_line(ttl, address, times);
-            resetValues(address, times);
-            prob = 0;
-        }
-        else{
-
         }
     }
     return(0);
