@@ -42,7 +42,7 @@ Paquet
 - **getaddrinfo / gettimeofday** => Récupère les addresses du domaine spécifiés dans node
 - **getnameinfo** => inverse de getaddrinfo, convertis une addresse IP en nom de domaine.
 - **gethostbyaddr** => obsolète, vaut mieux utiliser getaddrinfo car elle fait la même chose
-- **inet_ntoa / inet_pton** => convertie une string de network byte order vers vers une string corespondant à l'écriture décimal séparé par des points / Convertis une addresse texte IPV4 / IPV6 en binaire.
+- **inet_ntoa / inet_pton** => convertie une string de network byte order vers une string corespondant à l'écriture décimal séparé par des points / Convertis une addresse texte IPV4 / IPV6 en binaire.
 - **ntohs / htons** => unsigned short de network byte order vers host byte order / l'inverse
 - **freeaddrinfo** => free la structure addrinfo
 - **exit** => quitte le process

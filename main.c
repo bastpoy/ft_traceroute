@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -127,7 +127,27 @@ int initialize_socket(int *udpSocket, int *icmpSocket){
 }
 
 void print_line(int ttl, char address[3][64], float times[3]){
-    printf("%d %s %0.3f ms %0.3f ms %0.3f ms\n", ttl, address[0], times[0], times[1], times[2]);
+    printf("%d ", ttl);
+    
+    bool different = false;
+    if(!ft_strncmp(address[0], address[1], 1024) && !ft_strncmp(address[1], address[2], 1024)){
+        printf("%s %0.3f ms %0.3f ms %0.3f ms\n", address[0], times[0], times[1]);
+    }
+    else if(ft_strncmp(address[0], address[1], 1024)){
+        printf("%s %0.3f ms %s %0.3f", address[0], times[0], address[1], times[1]);
+        different = true;
+    }
+
+    if(ft_strncmp(address[1], address[2], 1024)){
+        if(different)
+            printf("%s %0.3f ms\n", address[0], times[0], address[1]);
+        else
+            printf("%s %0.3f ms %s %0.3f", address[0], times[0], address[1]);
+    }
+    else{
+        printf("%s %d %d", address[1], times[1], times[2]);
+    }
+    // printf("%d %s %0.3f ms %0.3f ms %0.3f ms\n", ttl, address[0], times[0], times[1], times[2]);
     return;
 }
 
@@ -216,10 +236,22 @@ int main(int argc, char *argv[])
                         times[prob] = time;
                         struct iphdr *recIp = (struct iphdr *)buffer;
                         struct icmphdr *recIcmp = (struct icmphdr *)(buffer + sizeof(struct iphdr));
-                        struct sockaddr srcAddr;
-                        srcAddr.sa_data
-                        getnameinfo(recIp->saddr, );
-                        printf("rec ip: %u, rec icmp: code %d, type %d, ttl %d\n", recIp->daddr, recIcmp->code, recIcmp->type, ttl);
+
+                        //create address to have the src domain
+                        struct sockaddr_in srcAddr;
+                        srcAddr.sin_family = AF_INET;
+                        srcAddr.sin_port = htons(11111);
+                        srcAddr.sin_addr.s_addr = recIp->saddr;
+                        char hbuf[1024], sbuf[1024];    
+                        ret = getnameinfo((struct sockaddr*)&srcAddr, sizeof(struct sockaddr), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NAMEREQD);
+                        if(ret != 0 && ret != EAI_NONAME){
+                            printf("Error getting address Name: %s %d\n", gai_strerror(ret), ret);
+                            return errno;
+                        }
+                        ft_strlcpy(address[prob], hbuf, ft_strlen(hbuf));
+
+                        // printf("the name is %s and info is %s\n", hbuf, sbuf);
+                        // printf("rec ip: %u, rec icmp: code %d, type %d, ttl %d\n", recIp->daddr, recIcmp->code, recIcmp->type, ttl);
                         if(recIcmp->code == 3 && recIcmp->type == 3){
                             return 0;
                         }
