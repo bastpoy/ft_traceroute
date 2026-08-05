@@ -93,30 +93,6 @@ int initialize_socket(int *udpSocket, int *icmpSocket){
     return 0;
 }
 
-void print_line(int ttl, char address[3][64], float times[3]){
-    printf(" %d  ", ttl);
-    
-    bool different = false;
-    if(!ft_strncmp(address[0], address[1], 1024) && !ft_strncmp(address[1], address[2], 1024)){
-        printf("%s  %0.3f ms %0.3f ms %0.3f ms\n", address[0], times[0], times[1], times[2]);
-		return;
-    }
-    else if(ft_strncmp(address[0], address[1], 1024)){
-        printf("%s  %0.3f ms %s  %0.3f ms ", address[0], times[0], address[1], times[1]);
-        different = true;
-    }
-
-    if(ft_strncmp(address[1], address[2], 1024)){
-        if(different)
-            printf("%s  %0.3f ms\n", address[2], times[2]);
-        else
-            printf("%s  %0.3f ms %s  %0.3f ms\n", address[1], times[1], address[2], times[2]);
-    }
-    else{
-        printf("%s  %0.3f ms %0.3f ms\n", address[1], times[1], times[2]);
-    }
-    return;
-}
 
 int main(int argc, char *argv[])
 {
@@ -129,8 +105,7 @@ int main(int argc, char *argv[])
     int udpSocket = 0;
     int icmpSocket = 0;
     
-    char address[3][64] = {{0}};
-    float times[3] = {0, 0, 0};
+    char buffer1[1024] = "\0";
         
     FD_ZERO(&rfds);
     
@@ -181,6 +156,9 @@ int main(int argc, char *argv[])
             }
             long long int timeSend = concatenate(tsend.tv_sec, tsend.tv_usec);
             
+            if(prob % 3 == 0)
+                printf(" %d  ", ttl);
+
             // printf("packet sent!!!\n");
             FD_SET(icmpSocket,&rfds);
             
@@ -200,8 +178,8 @@ int main(int argc, char *argv[])
                         return errno;
                     }
                     else{
-                        ft_strlcpy(address[prob], "test", 5);
-                        times[prob] = time;
+                        // ft_strlcpy(address[prob], "test", 5);
+                        // times[prob] = time;
                         struct iphdr *recIp = (struct iphdr *)buffer;
                         struct icmphdr *recIcmp = (struct icmphdr *)(buffer + sizeof(struct iphdr));
 
@@ -216,15 +194,20 @@ int main(int argc, char *argv[])
                             printf("Error getting address Name: %s %d\n", gai_strerror(ret), ret);
                             return errno;
                         }
+                        
 						char *strAddr = inet_ntoa(srcAddr.sin_addr);
 
-                        ft_strlcpy(address[prob], hbuf, ft_strlen(hbuf) + 1);
-						char *strTemp = ft_strjoin(address[prob], " (");
+                        char buffer2[1024];
+                        ft_strlcpy(buffer2, hbuf, ft_strlen(hbuf) + 1);
+						char *strTemp = ft_strjoin(buffer2, " (");
 						strTemp = ft_strjoin(strTemp, strAddr);
 						strTemp = ft_strjoin(strTemp, ")");
-						ft_strlcpy(address[prob], strTemp, ft_strlen(strTemp) + 1);
-
-						// printf("L'address total: %s\n", address[prob]);
+                        printf("-%s- -%s-\n", buffer1, buffer2);
+                        if(!ft_strncmp(buffer1, buffer2, ft_strlen(buffer2)))
+                            printf("%0.3f ms  ", time);
+                        else
+                            printf("%s  %0.3f ms  ", strTemp, time);
+                        ft_strlcpy(buffer1, buffer2, ft_strlen(buffer2) + 1);
 
                         if(recIcmp->code == 3 && recIcmp->type == 3){
                             stop = true;
@@ -233,19 +216,18 @@ int main(int argc, char *argv[])
                 }
             }
             else{
-                printf("error timeout ret is %d\n", ret);
-                ft_strlcpy(address[prob], "*", 1);
-                times[prob] = 0;
+                printf("*  ");
             }
             tv.tv_sec = 5;
             tv.tv_usec = 0;
         }
         prob++;
         if(prob >= 3){
-			print_line(ttl, address, times);
+            printf("\n");
+			// print_line(ttl, address, times);
             if(stop)
 				return 0;
-			resetValues(address, times);
+			// resetValues(address, times);
             prob = 0;
 			ttl++;
 			if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &ttl, 4) < 0){
