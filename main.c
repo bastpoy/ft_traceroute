@@ -170,10 +170,8 @@ int main(int argc, char *argv[])
             if(prob % 3 == 0)
                 printf(" %d  ", ttl);
 
-            // printf("packet sent!!!\n");
             FD_SET(icmpSocket,&rfds);
-            
-            // ajout dans le fd
+        
             ret = select(icmpSocket + 1, &rfds, NULL, NULL, &tv);
             if(ret){
                 if(FD_ISSET(icmpSocket, &rfds)){
