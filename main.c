@@ -19,6 +19,7 @@
 long long int concatenate(long long int x, unsigned y) {
     char *str = ft_itoa(y);
     int len = ft_strlen(str);
+    free(str);
     if(len < 6){
         while(len < 6){
             x *= 10;
@@ -93,6 +94,52 @@ int getDestAddr(char *argv, struct sockaddr_in *addrDest, char *buffer){
     return 2;
 }
 
+// int get_and_print_packet(unsigned char *buffer, size_t buffer_size, char *buffer1, size_t buffer1_size, bool *stop, float time){
+int get_and_print_packet(unsigned char *buffer, char *buffer1, bool *stop, float time){
+    struct iphdr *recIp = (struct iphdr *)buffer;
+    struct icmphdr *recIcmp = (struct icmphdr *)(buffer + sizeof(struct iphdr));
+
+    //create address to have the src domain
+    struct sockaddr_in srcAddr;
+    srcAddr.sin_family = AF_INET;
+    srcAddr.sin_port = htons(11111);
+    srcAddr.sin_addr.s_addr = recIp->saddr;
+    char hbuf[1024] = "\0";
+    char sbuf[1024] = "\0";
+    int ret = getnameinfo((struct sockaddr*)&srcAddr, sizeof(struct sockaddr), hbuf, 1024, sbuf, 1024, NI_NAMEREQD);
+    if(ret != 0 && ret != EAI_NONAME){
+        printf("Error getting address Name: %s %d\n", gai_strerror(ret), ret);
+        return errno;
+    }
+    
+    char *strAddr = inet_ntoa(srcAddr.sin_addr);
+    if(hbuf[0] == '\0')
+        ft_memcpy(hbuf, strAddr, ft_strlen(strAddr));
+
+    char buffer2[1024];
+    ft_strlcpy(buffer2, hbuf, ft_strlen(hbuf) + 1);
+    char *strTemp = ft_strjoin(buffer2, " (");
+    char *tmp[2];
+    tmp[0] = strTemp;
+    strTemp = ft_strjoin(strTemp, strAddr);
+    tmp[1] = strTemp;
+    strTemp = ft_strjoin(strTemp, ")");
+    free(tmp[0]);
+    free(tmp[1]);
+    if(!ft_strncmp(buffer1, buffer2, ft_strlen(buffer2)))
+        printf("%0.3f ms  ", time);
+    else
+        printf("%s  %0.3f ms  ", strTemp, time);
+    free(strTemp);
+    // printf("buffer %s %s\n", buffer1, buffer2);
+    ft_strlcpy(buffer1, buffer2, ft_strlen(buffer2) + 1);
+    if(recIcmp->code == 3 && recIcmp->type == 3){
+        *stop = true;
+    }
+    return 0;
+}
+
+
 int main(int argc, char *argv[])
 {
     if(argc < 2){
@@ -100,7 +147,7 @@ int main(int argc, char *argv[])
 		return 0;
     }
 	if(argc > 3){
-		printf("My traceroute implementation accept only two arguments")
+		printf("My traceroute implementation accept only two arguments");
 		return 2;
 	}
 	bool stop = false;
@@ -117,7 +164,7 @@ int main(int argc, char *argv[])
     struct timeval tsend;
     struct timeval trec;
     struct timeval tv;
-    tv.tv_sec = 5;
+    tv.tv_sec = 1;
     tv.tv_usec = 0;
     tsend.tv_sec = 0;
     tsend.tv_usec = 0;
@@ -187,45 +234,16 @@ int main(int argc, char *argv[])
                         return errno;
                     }
                     else{
-                        struct iphdr *recIp = (struct iphdr *)buffer;
-                        struct icmphdr *recIcmp = (struct icmphdr *)(buffer + sizeof(struct iphdr));
-
-                        //create address to have the src domain
-                        struct sockaddr_in srcAddr;
-                        srcAddr.sin_family = AF_INET;
-                        srcAddr.sin_port = htons(11111);
-                        srcAddr.sin_addr.s_addr = recIp->saddr;
-                        char hbuf[1024], sbuf[1024];    
-                        ret = getnameinfo((struct sockaddr*)&srcAddr, sizeof(struct sockaddr), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NAMEREQD);
-                        if(ret != 0 && ret != EAI_NONAME){
-                            printf("Error getting address Name: %s %d\n", gai_strerror(ret), ret);
-                            return errno;
-                        }
-                        
-						char *strAddr = inet_ntoa(srcAddr.sin_addr);
-
-                        char buffer2[1024];
-                        ft_strlcpy(buffer2, hbuf, ft_strlen(hbuf) + 1);
-						char *strTemp = ft_strjoin(buffer2, " (");
-						strTemp = ft_strjoin(strTemp, strAddr);
-						strTemp = ft_strjoin(strTemp, ")");
-                        // printf("-%s- -%s-\n", buffer1, buffer2);
-                        if(!ft_strncmp(buffer1, buffer2, ft_strlen(buffer2)))
-                            printf("%0.3f ms  ", time);
-                        else
-                            printf("%s  %0.3f ms  ", strTemp, time);
-                        ft_strlcpy(buffer1, buffer2, ft_strlen(buffer2) + 1);
-
-                        if(recIcmp->code == 3 && recIcmp->type == 3){
-                            stop = true;
-                        }
+                        ret = get_and_print_packet(buffer, buffer1, &stop, time);
+                        if(ret)
+                            return ret;
                     }
                 }
             }
             else{
                 printf("*  ");
             }
-            tv.tv_sec = 5;
+            tv.tv_sec = 1;
             tv.tv_usec = 0;
         }
         prob++;
