@@ -15,39 +15,6 @@
 #include "./include/libft/libft.h"
 #include <netdb.h>
 
-double get_timestamp(){
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec + ((double)tv.tv_usec) / 1000000;
-}
-
-uint16_t checksum(void *addr, size_t len) {
-    uint16_t *word = addr;
-    uint32_t result = 0;
-
-    for (long unsigned int i = 0; i < len / sizeof(uint16_t); i++) {
-        result += *(word + i);
-    }
-    if (len % 2 == 1) {
-        result += *((uint8_t *)addr + len - 1);
-    }
-    result = (result >> 16) + (result & 0xffff);
-    
-    result = (result >> 16) + (result & 0xffff);
-    return ~result;
-}
-
-void create_packet(struct icmphdr *packet, uint8_t *msg){
-    packet->type = ICMP_ECHO; 
-    packet->code = 0;
-    packet->un.echo.id = getpid();
-    packet->un.echo.sequence = 1;
-    packet->checksum = 0;
-    packet = (struct icmphdr*)msg;
-    double *timestamp = (double *)(packet + 1);
-    *timestamp = get_timestamp();
-    packet->checksum = checksum(msg, 16);
-}
 
 long long int concatenate(long long int x, unsigned y) {
     char *str = ft_itoa(y);
@@ -63,15 +30,6 @@ long long int concatenate(long long int x, unsigned y) {
         pow *= 10;
 
     return x * pow + y;
-}
-
-void resetValues(char address[3][64], float times[3]){
-    int i = 0;
-    while(i < 3){
-        address[i][0] = '\0';
-        times[i] = 0;
-        i++;
-    }
 }
 
 int initialize_socket(int *udpSocket, int *icmpSocket){
@@ -93,12 +51,58 @@ int initialize_socket(int *udpSocket, int *icmpSocket){
     return 0;
 }
 
+int getDestAddr(char *argv, struct sockaddr_in *addrDest, char *buffer){
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    char ipstr[INET_ADDRSTRLEN];
+    // char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    
+    int ret = getaddrinfo(argv, NULL, &hints, &result);
+    if(ret != 0){
+        if(ret == -2){
+            printf("ping: %s: Name or service not known\n", argv);
+            freeaddrinfo(result);
+        }
+        else if (ret == -3){
+            printf("ping: %s: Temporary failure in name resolution\n", argv);
+            freeaddrinfo(result);
+        }
+        return 2;
+    }
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        if (rp->ai_family == AF_INET) {
+            struct sockaddr_in *temp = (struct sockaddr_in *)rp->ai_addr;
+            memcpy(addrDest, (struct sockaddr_in *)rp->ai_addr, sizeof(struct sockaddr_in));
+            inet_ntop(rp->ai_family, &(temp->sin_addr), ipstr, sizeof(ipstr));
+			ft_memcpy(buffer, ipstr, ft_strlen(ipstr));
+            // if (getnameinfo((struct sockaddr*)temp, sizeof(struct sockaddr), hbuf, sizeof(hbuf), sbuf,
+            //         sizeof(sbuf), NI_NAMEREQD) == 0){
+            //         ft_memcpy(buffer, hbuf, sizeof(hbuf));
+			// 		printf("hbuf is %s\n", hbuf);
+            // }
+            freeaddrinfo(result);
+            return 0;
+        }
+    }
+    freeaddrinfo(result);
+    printf("ping: %s: Temporary failure in name resolution\n", argv);
+    return 2;
+}
 
 int main(int argc, char *argv[])
 {
     if(argc < 2){
-        return 1;
+		printf("Usage:\n traceroute <domain or address to search>");
+		return 0;
     }
+	if(argc > 3){
+		printf("My traceroute implementation accept only two arguments")
+		return 2;
+	}
 	bool stop = false;
 
     fd_set rfds;
@@ -124,6 +128,7 @@ int main(int argc, char *argv[])
     int addPort = 0;
     int prob = 0;
 
+	char destHostname[NI_MAXHOST] = "\0";
     struct sockaddr_in destAddr;
     destAddr.sin_family = AF_INET;
     destAddr.sin_port = htons(33434);
@@ -131,8 +136,12 @@ int main(int argc, char *argv[])
 	unsigned char buffer[1024] = "\0";
     char bufferSend[32] = "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_";
     int ret = inet_pton(AF_INET, argv[1], &(destAddr.sin_addr));
-
-    if(ret < 1){
+	if(!ret){
+		ret = getDestAddr(argv[1], &destAddr, destHostname);
+		if(ret != 0)
+        	return ret;
+	}
+    else if(ret < 1){
         strerror(errno);
         return errno;
     }
@@ -140,6 +149,8 @@ int main(int argc, char *argv[])
     if(initialize_socket(&udpSocket, &icmpSocket) != 0){
         return 1;
     }
+
+	printf("traceroute to %s (%s) , 30 hops max, 60 byte packets\n", argv[1], destHostname);
 
     while(ttl < 10){
         destAddr.sin_port = htons(33434 + addPort);
@@ -178,8 +189,6 @@ int main(int argc, char *argv[])
                         return errno;
                     }
                     else{
-                        // ft_strlcpy(address[prob], "test", 5);
-                        // times[prob] = time;
                         struct iphdr *recIp = (struct iphdr *)buffer;
                         struct icmphdr *recIcmp = (struct icmphdr *)(buffer + sizeof(struct iphdr));
 
@@ -202,7 +211,7 @@ int main(int argc, char *argv[])
 						char *strTemp = ft_strjoin(buffer2, " (");
 						strTemp = ft_strjoin(strTemp, strAddr);
 						strTemp = ft_strjoin(strTemp, ")");
-                        printf("-%s- -%s-\n", buffer1, buffer2);
+                        // printf("-%s- -%s-\n", buffer1, buffer2);
                         if(!ft_strncmp(buffer1, buffer2, ft_strlen(buffer2)))
                             printf("%0.3f ms  ", time);
                         else
@@ -224,10 +233,9 @@ int main(int argc, char *argv[])
         prob++;
         if(prob >= 3){
             printf("\n");
-			// print_line(ttl, address, times);
+			ft_memset(buffer1, 0, 1024);
             if(stop)
 				return 0;
-			// resetValues(address, times);
             prob = 0;
 			ttl++;
 			if(setsockopt(udpSocket, IPPROTO_IP, IP_TTL, &ttl, 4) < 0){
