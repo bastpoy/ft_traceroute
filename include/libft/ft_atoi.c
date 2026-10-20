@@ -6,7 +6,7 @@
 /*   By: bpoyet <marvin@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/08/16 18:40:58 by bpoyet            #+#    #+#             */
-/*   Updated: 2024/02/22 10:58:33 by bpoyet           ###   ########.fr       */
+/*   Updated: 2023/11/20 12:35:31 by bpoyet           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -64,4 +64,11 @@ int	ft_atoi(const char *str)
 	if (*ptr >= '0' && *ptr <= '9')
 		return (ft_chartoint(ptr, sign));
 	return (0);
+}
+
+#include <stdio.h>
+
+int main(void){
+        printf("%d\n", ft_atoi("18446744073709551616"));
+        printf("%d", atoi("18446744073709551616"));
 }

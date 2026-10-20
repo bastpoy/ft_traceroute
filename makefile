@@ -1,31 +1,40 @@
-SRCSPRINTF = main.c
-OBJSPRINTF = $(patsubst %.c, objects/%.o, $(SRCSPRINTF))
+CC = gcc
+LIBFT_DIR = include/libft
+LIBFT = $(LIBFT_DIR)/libft.a
 
-CFLAGS = -Wall -Werror -Wextra -g3
+CFLAGS = -g -Wall -Wextra -Werror -Iinclude -I$(LIBFT_DIR)
+LDFLAGS = -L$(LIBFT_DIR) -lft
 
 NAME = ft_traceroute
 
-$(NAME) : include/libft/libft.a $(OBJSPRINTF)
-	$(CC) $(CFLAGS) -o $(NAME) $(OBJSPRINTF) ./include/libft/libft.a
-all : $(NAME)
+SRCDIR = src
+OBJDIR = obj
 
-include/libft/libft.a: FORCE
-	$(MAKE) all -C ./include/libft
+SRCS = $(wildcard $(SRCDIR)/*.c)
+OBJS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
 
-objects/%.o : %.c include/libft/libft.h
-	mkdir -p $(dir $@)
+all: $(NAME)
+
+$(NAME): $(LIBFT) $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $(NAME) $(LDFLAGS)
+
+$(LIBFT):
+	$(MAKE) -C $(LIBFT_DIR)
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-clean : 
-	$(MAKE) clean -C ./include/libft
-	rm -rf objects
-	rm -rf test
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
 
-fclean : clean
+clean:
+	$(MAKE) -C $(LIBFT_DIR) clean
+	rm -rf $(OBJDIR)
+
+fclean: clean
+	$(MAKE) -C $(LIBFT_DIR) fclean
 	rm -f $(NAME)
 
-re : fclean all
+re: fclean all
 
-FORCE:
-
-.PHONY:  all clean fclean re
+.PHONY: all clean fclean re
