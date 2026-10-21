@@ -7,7 +7,7 @@
 - A chaque nouveau paquet envoyé le TTL est incrémenté jusqu'à recevoir un ICMP "port unreachable", ce qui signifie que le paquet a atteint l'host.
 - Il faut que j'envoie 3 paquets par 3 paquets avec le même ttl. Et que j'incrémente de 1 le TTL
 - Je surveille chaque paquet pour vérifier qu'il n'y a pas un host unreachable.
-- Le soucis réside dans la réception du paquet, car quand je regarde sur wireshark je n'ai pas de 
+- Attendre 5 sec avant de timeout un ttl
 
 ## Protocole et paquet
 
@@ -26,6 +26,8 @@ Paquet
 ## Réception
 
 - La réception du paquet finale se fait en ICMP. Il faut donc créer un autre paquet qui va écouter les retours ICMP.
+- icmp time excedeed : type 11
+- icmp host unreach : type 3 code 3
 
 ## UDP header
 
@@ -34,24 +36,3 @@ Paquet
   - Port dest => (2 octets)
   - length => (2 octets)
   - checksum => (2 octets)
-
-
-## FONCTIONS
-
-- **getpid / getuid** => pour envoyer l'id dans le paquet
-- **getaddrinfo / gettimeofday** => Récupère les addresses du domaine spécifiés dans node
-- **getnameinfo** => inverse de getaddrinfo, convertis une addresse IP en nom de domaine.
-- **gethostbyaddr** => obsolète, vaut mieux utiliser getaddrinfo car elle fait la même chose
-- **inet_ntoa / inet_pton** => convertie une string de network byte order vers une string corespondant à l'écriture décimal séparé par des points / Convertis une addresse texte IPV4 / IPV6 en binaire.
-- **ntohs / htons** => unsigned short de network byte order vers host byte order / l'inverse
-- **freeaddrinfo** => free la structure addrinfo
-- **exit** => quitte le process
-- **setsockopt** => Configurer des options sur un socket
-- **recvfrom / sendto** => fonction d'envoies et de réception de paquets
-- **bind / socket / close** => Lier un socket avec une addresse / Créer un socket / fermer un file descriptor
-- **strerror / gai_strerror** => renvoe la string correspondant au code d'erreur / retourne la string correspondant au code d'erreur de getaddrinfo et getnameinfo
-- **select** => Surveille des file descriptor (fd)
-- **FD_ZERO** => Supprime tous les file descriptor du set
-- **FD_CLR** => Supprimer le file descriptor du set
-- **FD_SET** => Ajoute le file descriptor au set
-- **FD_ISET** => Retourne non zero si le file descriptor est présent dans le set. 0 sinon.

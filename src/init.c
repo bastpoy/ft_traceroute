@@ -1,15 +1,25 @@
 #include "header.h"
 
+volatile sig_atomic_t interrupted = 0;
+
 static const struct option long_opts[] = {
     {"help", no_argument, NULL, 'h'},
     {NULL,  0,                 NULL, 0}
 };
+
+static void sigint_handler(int signal)
+{
+    if (signal == SIGINT){
+        interrupted = 1;
+    }
+}
 
 static int check_args(int argc, char *argv[], struct tracert_ctx *ctx){
     int opt;
 
     ctx->args.verbose = false;
     ctx->args.ttl = 0;
+    ctx->args.timeout = 5;
     opterr = 0;
 
     while ((opt = getopt_long(argc, argv, "vh", long_opts, NULL)) != -1){
@@ -40,13 +50,12 @@ static int check_args(int argc, char *argv[], struct tracert_ctx *ctx){
 
 static int init_socket(struct tracert_ctx *ctx)
 {
-    int ttl = 1;
     ctx->udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
     if(ctx->udp_socket < 0){
         return errno;
     }
-    if(setsockopt(ctx->udp_socket, IPPROTO_IP, IP_TTL, &ttl, 4) < 0){
-        strerror(errno);
+    if(setsockopt(ctx->udp_socket, IPPROTO_IP, IP_TTL, &(ctx->ttl), 4) < 0){
+        fprintf(stderr, "Error setsocket: %s\n", strerror(errno));
         return errno;
     }
 
@@ -59,20 +68,7 @@ static int init_socket(struct tracert_ctx *ctx)
     return 0;
 }
 
-int init_ctx(struct tracert_ctx *ctx, int argc, char **argv)
-{
-    memset(ctx, 0, sizeof(*ctx));
-    ctx->destAddr.sin_family = AF_INET;
-    ctx->destAddr.sin_port = htons(33434);
-
-    int ret = check_args(argc, argv, ctx);
-    if (ret != 0)
-        return (ret);
-
-    return (init_socket(ctx));
-}
-
-int getDestAddr(char *argv, struct tracert_ctx *ctx){
+static int getDestAddr(char *argv, struct tracert_ctx *ctx){
     struct addrinfo hints;
     struct addrinfo *result, *rp;
     char ipstr[INET_ADDRSTRLEN];
@@ -83,6 +79,7 @@ int getDestAddr(char *argv, struct tracert_ctx *ctx){
     
     int ret = getaddrinfo(argv, NULL, &hints, &result);
     if(ret != 0){
+        fprintf(stderr, "%s: %s\n", argv, gai_strerror(ret));
         return 2;
     }
     for (rp = result; rp != NULL; rp = rp->ai_next) {
@@ -97,4 +94,29 @@ int getDestAddr(char *argv, struct tracert_ctx *ctx){
     }
     freeaddrinfo(result);
     return 2;
+}
+
+int init_ctx(struct tracert_ctx *ctx, int argc, char **argv)
+{
+    memset(ctx, 0, sizeof(*ctx));
+    int ret = check_args(argc, argv, ctx);
+    if (ret != 0)
+        return (ret);
+    ret = getDestAddr(argv[ctx->index], ctx);
+    if(ret){
+        return ret;
+    }
+    ctx->port = 33434;
+    ctx->ttl = 1;
+    ctx->probeNumber = 0;
+    ctx->timePacketSend = 0;
+    ctx->destAddr.sin_family = AF_INET;
+    ctx->destAddr.sin_port = htons(ctx->port);
+    printf("port=%d\n", ntohs(ctx->destAddr.sin_port));
+
+    bzero(&(ctx->sig), sizeof(ctx->sig));
+    ctx->sig.sa_handler = &sigint_handler;
+	sigaction(SIGINT, &(ctx->sig), NULL);
+
+    return (init_socket(ctx));
 }
