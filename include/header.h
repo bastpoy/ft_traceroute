@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <math.h>
 
 #define PRINT_HELP 3
 #define TIME_OUT -1
@@ -25,7 +26,6 @@
 extern volatile sig_atomic_t interrupted;
 
 struct arguments {
-  bool verbose;
   int ttl;
   double timeout;
 };
@@ -49,7 +49,6 @@ struct tracert_ctx {
   bool mypacket;
   struct sockaddr_in destAddr; // dest addr that is in arg
   char ipDest[INET_ADDRSTRLEN];
-  char hostname[NI_MAXHOST];
   struct sigaction sig;
   struct arguments args;
   struct select_struct slct;
@@ -63,7 +62,6 @@ void print_timeout(struct tracert_ctx *ctx);
 // init
 int init_ctx(struct tracert_ctx *ctx, int argc, char **argv);
 void set_select(struct tracert_ctx *ctx, double timeout);
-int set_packet(struct tracert_ctx *ctx, int probes);
 int set_var(struct tracert_ctx *ctx, int probes);
 
 // utils

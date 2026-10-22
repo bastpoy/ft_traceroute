@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf("traceroute to %s (%s), 30 hops max, 60 byte packets\n",
-		   ctx.hostname, ctx.ipDest);
+		   argv[ctx.index], ctx.ipDest);
 	while (!interrupted && ctx.ttl <= ctx.args.ttl && !ctx.end) {
 		int probes = 0;
 		while (probes < 3) {

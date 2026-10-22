@@ -1,10 +1,10 @@
 #include "header.h"
 
 void print_help(){
-    printf("Usage\n  ping [options] <destination>\n\nOptions:\n"  
-        "<destination>\t\tdns name or ip address\n"
-        "  -h\t\t\tprint help and exit\n"
-        "  --ttl=N\t\tspecify N as time-to-live\n");
+    printf("Usage: traceroute [OPTION...] HOST\n"
+		"Print the route packets trace to network host.\n"
+        "  --help\t\t\tprint help and exit\n"
+	);
 }
 
 void print_packet(struct tracert_ctx *ctx, struct iphdr *ip){
