@@ -7,7 +7,7 @@ void print_help(){
         "  --ttl=N\t\tspecify N as time-to-live\n");
 }
 
-void print_packet(struct tracert_ctx *ctx, struct iphdr *ip, bool timeout){
+void print_packet(struct tracert_ctx *ctx, struct iphdr *ip){
     if(ctx->probeNumber == 0){
         char stringIp[INET_ADDRSTRLEN];
         char hostname[NI_MAXHOST];
@@ -23,15 +23,16 @@ void print_packet(struct tracert_ctx *ctx, struct iphdr *ip, bool timeout){
         if(ret != 0){
             memcpy(hostname, stringIp, sizeof(stringIp));
         }
-        if(timeout)
-            printf("%s (%s) * ", hostname, stringIp);
-        else
-            printf("%s (%s) %0.3f ms ", hostname, stringIp, (get_timestamp() - ctx->timePacketSend) * 1000);
+        printf("  %d  %s  (%s)  %0.3fms  ", ctx->ttl, hostname, stringIp, (get_timestamp() - ctx->timePacketSend) * 1000);
     }
-    else if(ctx->probeNumber == 1){
-        printf("%0.3f ms", (get_timestamp() - ctx->timePacketSend) * 1000);
+    else
+        printf("%0.3fms  ", (get_timestamp() - ctx->timePacketSend) * 1000);
+}
+
+void print_timeout(struct tracert_ctx *ctx){
+    if(ctx->probeNumber == 0){
+        printf("  %d  *  ", ctx->ttl);
     }
-    else{
-        printf(" %0.3f ms \n", (get_timestamp() - ctx->timePacketSend) * 1000);
-    }
+    else
+        printf("*  ");
 }
