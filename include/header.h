@@ -1,21 +1,22 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <string.h>
 #include <errno.h>
-#include <stdbool.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/udp.h>
-#include <netinet/ip.h>
+#include <float.h>
+#include <getopt.h>
 #include <ifaddrs.h>
 #include <netdb.h>
-#include <getopt.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define PRINT_HELP 3
 #define TIME_OUT -1
@@ -24,45 +25,49 @@
 extern volatile sig_atomic_t interrupted;
 
 struct arguments {
-    bool verbose;
-    int ttl;
-    int timeout;
+  bool verbose;
+  int ttl;
+  double timeout;
 };
 
-struct select_struct{
-    fd_set readfs;
-    struct timeval tv;
+struct select_struct {
+  fd_set readfs;
+  struct timeval tv;
 };
 
-struct tracert_ctx{
-    int udp_socket;
-    int imcp_socket;
-    int index;
-    
-    // int incrPort; //increment port on each ttl
-    int port;
-    int ttl; // ttl that will be increment during the sending
-    int probeNumber;
-    double timePacketSend;
-    bool end;
-    struct sockaddr_in destAddr; //dest addr that is in arg
-    char destHostname[NI_MAXHOST];
-    struct sigaction sig;
-    struct arguments args;
-    struct select_struct slct;
+struct tracert_ctx {
+  int udp_socket;
+  int imcp_socket;
+  int index;
+
+  // int incrPort; //increment port on each ttl
+  int port;
+  int ttl; // ttl that will be increment during the sending
+  int probeNumber;
+  double timePacketSend;
+  bool end;
+  bool mypacket;
+  struct sockaddr_in destAddr; // dest addr that is in arg
+  char ipDest[INET_ADDRSTRLEN];
+  char hostname[NI_MAXHOST];
+  struct sigaction sig;
+  struct arguments args;
+  struct select_struct slct;
 };
 
-//print
+// print
 void print_help();
 void print_packet(struct tracert_ctx *ctx, struct iphdr *ip);
 void print_timeout(struct tracert_ctx *ctx);
 
-//init
+// init
 int init_ctx(struct tracert_ctx *ctx, int argc, char **argv);
-void init_select(struct tracert_ctx *ctx);
+void set_select(struct tracert_ctx *ctx, double timeout);
+int set_packet(struct tracert_ctx *ctx, int probes);
+int set_var(struct tracert_ctx *ctx, int probes);
 
-//utils
-long long int concatenate(long long int x, unsigned y);
+// utils
 double get_timestamp();
+int is_timeout(struct tracert_ctx *ctx);
 int manage_response(struct tracert_ctx *ctx);
-int setTtl(struct tracert_ctx *ctx);
+void close_program(struct tracert_ctx *ctx);

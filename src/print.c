@@ -10,7 +10,6 @@ void print_help(){
 void print_packet(struct tracert_ctx *ctx, struct iphdr *ip){
     if(ctx->probeNumber == 0){
         char stringIp[INET_ADDRSTRLEN];
-        char hostname[NI_MAXHOST];
         struct sockaddr_in addr;
         
         memset(&addr, 0, sizeof(addr));
@@ -18,12 +17,7 @@ void print_packet(struct tracert_ctx *ctx, struct iphdr *ip){
         addr.sin_addr.s_addr = ip->saddr;
 
         inet_ntop(AF_INET, &ip->saddr, stringIp, sizeof(stringIp));
-        int ret = getnameinfo((struct sockaddr *)&addr, sizeof(struct sockaddr_in), hostname, 
-            sizeof(hostname), NULL, 0, NI_NAMEREQD);
-        if(ret != 0){
-            memcpy(hostname, stringIp, sizeof(stringIp));
-        }
-        printf("  %d  %s  (%s)  %0.3fms  ", ctx->ttl, hostname, stringIp, (get_timestamp() - ctx->timePacketSend) * 1000);
+        printf("  %d  %s  %0.3fms  ", ctx->ttl, stringIp, (get_timestamp() - ctx->timePacketSend) * 1000);
     }
     else
         printf("%0.3fms  ", (get_timestamp() - ctx->timePacketSend) * 1000);

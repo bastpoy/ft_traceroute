@@ -2,6 +2,7 @@
 
 int main(int argc, char *argv[]) {
 	struct tracert_ctx ctx;
+
 	int ret = init_ctx(&ctx, argc, argv);
 	if (ret != 0) {
 		if (ret == PRINT_HELP)
@@ -9,42 +10,54 @@ int main(int argc, char *argv[]) {
 		return ret;
 	}
 
-  	printf("traceroute to %s (%s) , 30 hops max, 60 byte packets\n", argv[ctx.index], ctx.destHostname);
-	while(!interrupted && ctx.ttl <= ctx.args.ttl && !ctx.end){
-		for (int i = 0; i < 3; i++){
-			ctx.probeNumber = i;
-			ctx.timePacketSend = get_timestamp();
-			int size = sendto(ctx.udp_socket, DATA_SEND, 32, 0, (struct sockaddr *)&(ctx.destAddr), sizeof(ctx.destAddr)); 
-			if(size < 1){
+	printf("traceroute to %s (%s), 30 hops max, 60 byte packets\n",
+		   ctx.hostname, ctx.ipDest);
+	while (!interrupted && ctx.ttl <= ctx.args.ttl && !ctx.end) {
+		int probes = 0;
+		while (probes < 3) {
+			if (set_var(&ctx, probes))
+				return errno;
+			int size = sendto(ctx.udp_socket, DATA_SEND, 32, 0,
+							  (struct sockaddr *)&(ctx.destAddr),
+							  sizeof(ctx.destAddr));
+			if (size < 1) {
 				fprintf(stderr, "Error sendto: %s\n", strerror(errno));
-				return(1);
+				return (1);
 			}
-			int ret = select(ctx.imcp_socket + 1, &ctx.slct.readfs, NULL, NULL, &ctx.slct.tv);
-			if(ret < 0){
-				if (errno == EINTR){
+			while (!ctx.mypacket) {
+				if (is_timeout(&ctx) != 0) { // timeout
+					print_timeout(&ctx);
 					break;
 				}
-				fprintf(stderr, "Error select %s\n", strerror(errno));
-				return errno;
-			}
-			else if(ret > 0){
-				if(FD_ISSET(ctx.imcp_socket, &ctx.slct.readfs)){
-					ret = manage_response(&ctx);
-					if(ret)
-						return ret;
+				int ret = select(ctx.imcp_socket + 1, &ctx.slct.readfs, NULL,
+								 NULL, &ctx.slct.tv);
+				// error on select
+				if (ret < 0) {
+					if (errno == EINTR) { //signal
+						close_program(&ctx);
+						return 0;
+					}
+					fprintf(stderr, "Error select %s\n", strerror(errno));
+					return errno;
 				}
+				// timeout
+				if (ret == 0) {
+					print_timeout(&ctx);
+					break;
+				}
+				// read actual packet
+				ret = manage_response(&ctx);
+				if (ret == -1)
+					return errno;
 			}
-			else if (ret == 0){
-				print_timeout(&ctx);				
-				init_select(&ctx);
-			}
-			// ctx.port++;
+			ctx.port++;
+			probes++;
 		}
 		printf("\n");
 		ctx.ttl++;
-		setTtl(&ctx);
 	}
-	return (0);
+	close_program(&ctx);
+	return 0;
 }
 
 // free comme il faut a un signal
