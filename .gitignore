@@ -2,3 +2,5 @@ obj
 ft_traceroute
 .vscode
 include/libft/*.o
+results
+include/libft/libft.a

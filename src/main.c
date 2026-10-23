@@ -13,8 +13,9 @@ int main(int argc, char *argv[]) {
 	printf("traceroute to %s (%s), 30 hops max, 60 byte packets\n",
 		   argv[ctx.index], ctx.ipDest);
 	while (!interrupted && ctx.ttl <= ctx.args.ttl && !ctx.end) {
+		// printf("probe is %f\n", ctx.args.timeout);
 		int probes = 0;
-		while (probes < 3) {
+		while (probes < ctx.args.probeNbr) {
 			if (set_var(&ctx, probes))
 				return errno;
 			int size = sendto(ctx.udp_socket, DATA_SEND, 32, 0,
@@ -59,5 +60,3 @@ int main(int argc, char *argv[]) {
 	close_program(&ctx);
 	return 0;
 }
-
-// free comme il faut a un signal

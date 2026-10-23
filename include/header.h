@@ -22,11 +22,13 @@
 #define PRINT_HELP 3
 #define TIME_OUT -1
 #define DATA_SEND "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_"
-
+#define MAX_PROBES 10
 extern volatile sig_atomic_t interrupted;
 
 struct arguments {
   int ttl;
+  int probeNbr;
+  bool do_dns;
   double timeout;
 };
 

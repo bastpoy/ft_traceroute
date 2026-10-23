@@ -5,6 +5,7 @@ volatile sig_atomic_t interrupted = 0;
 static const struct option long_opts[] = {{"help", no_argument, NULL, 'h'},
 											{"max-hops", required_argument, NULL, 'm'},
 											{"wait", required_argument, NULL, 'w'},
+											{"queries", required_argument, NULL, 'q'},
 										  {NULL, 0, NULL, 0}};
 
 static void sigint_handler(int signal) {
@@ -50,14 +51,16 @@ static int check_args(int argc, char *argv[], struct tracert_ctx *ctx) {
 	int opt;
 
 	ctx->args.ttl = 30;
-	ctx->args.timeout = 5.0;
+	ctx->args.timeout = 3.0;
+	ctx->args.do_dns = false;
+	ctx->args.probeNbr = 3;
 	opterr = 0;
 
-	while ((opt = getopt_long(argc, argv, ":m:hw:", long_opts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, ":m:hw:nq:", long_opts, NULL)) != -1) {
 		switch (opt) {
 		case 'm':
 			if (parse_int(optarg, 1, 255, &ctx->args.ttl) != 0){
-				printf("traceroute: invalid value (`%s' near `%s')\n", optarg, optarg);
+				fprintf(stderr, "traceroute: invalid value (`%s' near `%s')\n", optarg, optarg);
 				return 1;
 			}
 			break;
@@ -66,6 +69,15 @@ static int check_args(int argc, char *argv[], struct tracert_ctx *ctx) {
 			return 3;
 		case 'w':
 			if (parse_double(optarg, 0.0, 86400.0, &ctx->args.timeout) != 0) {
+				fprintf(stderr, "traceroute: invalid value (`%s' near `%s')\n", optarg, optarg);
+				return 1;
+			}
+			break;
+		case 'n':
+			ctx->args.do_dns = true;
+			break;
+		case 'q':
+			if (parse_int(optarg, 1, MAX_PROBES, &ctx->args.probeNbr) != 0) {
 				fprintf(stderr, "traceroute: invalid value (`%s' near `%s')\n", optarg, optarg);
 				return 1;
 			}
@@ -88,12 +100,16 @@ static int check_args(int argc, char *argv[], struct tracert_ctx *ctx) {
 	}
 
 	if (optind >= argc) {
-		printf("traceroute: missing host operand\n");
+		if(argc == 1){
+			print_help();
+			return 3;
+		}
+		fprintf(stderr, "traceroute: missing host operand\n");
 		return 2;
 	}
 	if (optind + 1 < argc) {
 		print_help();
-		return 2;
+		return 3;
 	}
 	ctx->index = optind;
 	return 0;
